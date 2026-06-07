@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "acme-dwh"
+version = "0.1.0"
+description = "Acme Ltd — bi-temporal financial markets data warehouse (FastAPI + Cassandra + MCP)"
+requires-python = ">=3.12"
+
+[project.scripts]
+acme-init-db = "acme_dwh.db.init_db:main"
+acme-ingest = "acme_dwh.ingestion.run_ingestion:main"
+acme-mcp = "acme_dwh.mcp.server:main"
+acme-assistant = "acme_dwh.mcp.ollama_client:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["acme_dwh*"]
+
+[tool.setuptools.package-data]
+"acme_dwh.db" = ["*.cql"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]

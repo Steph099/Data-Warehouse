@@ -1,0 +1,1 @@
+"""REST consumption layer."""

@@ -1,0 +1,7 @@
+# Acme DWH — development & test dependencies
+-r requirements.txt
+
+pytest==9.0.3
+pytest-asyncio==1.4.0
+respx==0.23.1        # mock vendor HTTP (httpx) in ingestion tests
+freezegun==1.5.5     # control time in bi-temporal correctness tests

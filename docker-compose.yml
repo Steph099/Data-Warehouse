@@ -1,0 +1,55 @@
+# Infrastructure for the Acme DWH.
+#   - cassandra : the NoSQL data store (the warehouse itself)
+#   - spark     : containerized Apache Spark for the analytics/ML jobs
+#
+# The FastAPI app, ingestion CLI, MCP server and Ollama client run on the host
+# inside the project venv (see README). Only the heavy infra lives in Docker.
+#
+# Run the Spark jobs (after `docker compose up -d`):
+#   docker compose exec spark /opt/spark/bin/spark-submit \
+#     --master "local[*]" \
+#     --packages com.datastax.spark:spark-cassandra-connector_2.12:3.5.1 \
+#     --conf spark.jars.ivy=/tmp/.ivy2 \
+#     --conf spark.cassandra.connection.host=cassandra \
+#     /opt/jobs/aggregation_job.py
+
+services:
+  cassandra:
+    image: cassandra:5.0
+    container_name: acme-cassandra
+    ports:
+      - "9042:9042"
+    environment:
+      CASSANDRA_CLUSTER_NAME: acme-dwh-cluster
+      CASSANDRA_DC: datacenter1
+      CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+      MAX_HEAP_SIZE: 512M
+      HEAP_NEWSIZE: 128M
+    volumes:
+      - cassandra-data:/var/lib/cassandra
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'DESCRIBE KEYSPACES' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 12
+      start_period: 90s
+
+  spark:
+    build:
+      context: ./docker/spark
+    image: acme-spark:3.5.3
+    container_name: acme-spark
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    environment:
+      CASSANDRA_HOST: cassandra
+      CASSANDRA_PORT: "9042"
+      CASSANDRA_KEYSPACE: acme_dwh
+    volumes:
+      - ./src/acme_dwh/analytics:/opt/jobs:ro
+    # Keep the container idle; jobs are launched on demand via `docker compose exec`.
+    entrypoint: ["tail", "-f", "/dev/null"]
+
+volumes:
+  cassandra-data:
