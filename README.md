@@ -23,6 +23,48 @@ Everything is bi-temporal: records are never overwritten. Each row keeps a
 business date (when it was true) and a system time (when we stored it), so you
 can always reproduce what the data looked like at any point in the past.
 
+## Architecture
+
+```mermaid
+flowchart TD
+    User(["User"])
+
+    subgraph client["Client"]
+        UI["Web UI<br/><i>React · Vite</i>"]
+    end
+
+    subgraph assistant["Assistant"]
+        MCP["MCP server + client<br/><i>MCP · Ollama (llama3.2)</i>"]
+    end
+
+    subgraph services["Services"]
+        API["REST API<br/><i>FastAPI · OpenAPI /docs</i>"]
+        Spark["Analytics jobs<br/><i>PySpark</i>"]
+        ETL["Ingestion / ETL<br/><i>Python — fetch · normalize · load</i>"]
+    end
+
+    subgraph data["Data"]
+        DAL["Data Access Layer<br/><i>only place CQL lives</i>"]
+        DB[("Cassandra 5.0<br/><i>bi-temporal store</i>")]
+    end
+
+    Vendors["External vendors<br/><i>Bitfinex · Nasdaq Data Link</i>"]
+
+    User --> UI
+    User --> MCP
+    UI -->|HTTP /api| API
+    MCP -->|REST| API
+    API --> DAL
+    ETL --> DAL
+    DAL <--> DB
+    Spark <-->|spark-cassandra-connector| DB
+    Vendors --> ETL
+```
+
+Everything except the UI and assistant runs in **Python 3.12+**; Cassandra and
+Spark run in **Docker**. The API reaches Cassandra only through the DAL, and the
+assistant reaches data only through the REST API — never the database directly.
+
 ## Stack
 
 Python 3.12+, FastAPI, Cassandra 5.0, PySpark, MCP, Ollama, React + Vite.
